@@ -1,0 +1,55 @@
+target C {
+    coordination: decentralized
+}
+
+reactor Count {
+    input in:long;
+    output out:long;
+    state c:int(0);
+    timer t(0, 1 sec);
+    reaction(t) -> out {=
+        long start;
+        struct timeval timecheck;
+        gettimeofday(&timecheck, NULL);
+        start = (long)timecheck.tv_usec;
+        lf_set(out, start);
+    =}
+    reaction(in){=
+        long end;
+        struct timeval timecheck;
+        gettimeofday(&timecheck, NULL);
+        end = (long)timecheck.tv_usec;
+        lf_print("Roundtrip time: %ld", end - in->value);
+        // print to file
+        FILE *file = fopen("lf_roundtrip_log.csv", "a");
+        if (file == NULL)
+        {
+            printf("Error opening file!\n");
+            exit(1);
+        }
+        fprintf(file, "%ld, \n", end - in->value);
+        fclose(file);
+    =}
+}
+reactor Print {
+    input in:long;
+    output out:long;
+    reaction(in) -> out{=
+        long halfway;
+        struct timeval timecheck;
+        gettimeofday(&timecheck, NULL);
+        halfway = (long)timecheck.tv_usec; // microseconds
+        lf_print("Received: %d at (%lld, %d)", in->value,
+            lf_time_logical_elapsed(), lf_tag().microstep
+        );
+        lf_print("One trip time: %ld", halfway - in->value);
+        lf_set(out, in->value);
+    =}
+}
+
+federated reactor {
+    c = new Count();
+    p = new Print();
+    c.out -> p.in;
+    p.out -> c.in;
+}
