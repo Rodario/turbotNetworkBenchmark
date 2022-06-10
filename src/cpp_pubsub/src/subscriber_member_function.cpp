@@ -22,7 +22,7 @@ class MinimalSubscriber : public rclcpp::Node
   private:
     void topic_callback(const bench_pack::msg::Bench & msg) const
     {
-      RCLCPP_INFO_STREAM(this->get_logger(), "I heard: ID '" << msg.id << " | " << msg.start_time << "'");
+      RCLCPP_INFO_STREAM(this->get_logger(), "I heard: ID '" << (int) msg.id << " | " << msg.start_time << "'");
       auto message = bench_pack::msg::Bench();
       message.id =  1;
       message.start_time = msg.start_time;
