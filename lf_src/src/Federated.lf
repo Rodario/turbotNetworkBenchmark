@@ -47,7 +47,7 @@ reactor Print {
     =}
 }
 
-federated reactor {
+federated reactor at 192.168.7.4{
     c = new Count();
     p = new Print();
     c.out -> p.in;
