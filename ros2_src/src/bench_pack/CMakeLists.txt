@@ -27,6 +27,9 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Num.msg"
   "msg/Bench.msg"
+  "msg/Metadata.msg"
+  "msg/Wrapper.msg"
+  "msg/UserData.msg"
 )
 
 
