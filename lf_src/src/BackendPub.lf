@@ -1,0 +1,39 @@
+target Cpp {
+    ros2: true,
+    keepalive: true
+}
+
+public preamble {=
+    #include "rclcpp/rclcpp.hpp"
+    #include "bench_pack/msg/wrapper.hpp"
+    #include "bench_pack/msg/user_data.hpp"
+=}
+
+reactor Publisher {
+    private preamble {=
+        // FIXME: forward declaration to make the node visible
+        extern rclcpp::Node* lf_node;
+    =}
+
+    state publisher: {= rclcpp::Publisher<bench_pack::msg::Wrapper>::SharedPtr =}
+
+    input message_to_send: {= bench_pack::msg::UserData =}
+
+    reaction(startup) {=
+        publisher = lf_node->create_publisher<bench_pack::msg::Wrapper>("topic", 10);         
+    =}
+
+    reaction(message_to_send) {=
+        // add metadata
+        auto wrapper_message = bench_pack::msg::Wrapper();
+        auto metadata = bench_pack::msg::Metadata();
+        auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        metadata.timestamp = now;
+
+        wrapper_message.meta_data = metadata;
+        wrapper_message.user_data = *message_to_send.get();
+
+        // send message via ROS2
+        publisher->publish(wrapper_message);
+    =}
+}

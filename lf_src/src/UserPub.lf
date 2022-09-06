@@ -1,0 +1,32 @@
+target Cpp {
+    ros2: true,
+    keepalive: true
+}
+
+import Publisher from "./BackendPub.lf";
+
+reactor PrepareMessage{
+    private preamble {=
+        #include "bench_pack/msg/user_data.hpp"
+    =}
+
+    timer t(0, 100 ms)
+    output send_port: {=bench_pack::msg::UserData=}
+    state counter: int(0)
+
+    reaction(t) -> send_port {=
+        reactor::log::Info() << "Publish message.";
+        auto usr_msg = bench_pack::msg::UserData();  
+        usr_msg.message = "Message with index: " + std::to_string(counter++);
+        send_port.set(usr_msg);
+
+
+    =}
+}
+
+main reactor UserPub{
+    prepMsg = new PrepareMessage();
+    publisher = new Publisher();
+
+    prepMsg.send_port -> publisher.message_to_send;
+}

@@ -1,0 +1,27 @@
+target Cpp {
+    ros2: true,
+    keepalive: true
+}
+
+import Subscriber from "./BackendSub.lf"
+
+reactor ReceiveMessage{
+    private preamble{=
+        #include "bench_pack/msg/user_data.hpp"
+    =}
+
+    input received_message: {= bench_pack::msg::UserData =}
+
+    reaction(received_message){=
+        // received determenistic message
+        auto msg = *received_message.get();
+        reactor::log::Info() << "Received Message: " << msg.message;
+    =}
+}
+
+main reactor UserSub{
+    revMsg = new ReceiveMessage();
+    subscriber = new Subscriber();
+    
+    subscriber.user_message->revMsg.received_message;
+}

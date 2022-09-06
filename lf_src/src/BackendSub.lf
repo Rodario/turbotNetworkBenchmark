@@ -1,0 +1,46 @@
+target Cpp {
+    keepalive: true
+}
+
+public preamble {=
+    #include "rclcpp/rclcpp.hpp"
+    #include "bench_pack/msg/wrapper.hpp"
+    #include "bench_pack/msg/user_data.hpp"
+    #include "bench_pack/msg/metadata.hpp"
+=}
+
+reactor Subscriber {
+    private preamble {=
+        // forward declaration to make node visible
+        extern rclcpp::Node* lf_node;
+    =}
+
+    state subscription: {= rclcpp::Subscription<bench_pack::msg::Wrapper>::SharedPtr =}
+
+    output user_message: {= bench_pack::msg::UserData =}
+    physical action phys_trigger: {= bench_pack::msg::Wrapper =}
+
+    reaction(startup) -> phys_trigger {=
+        subscription = lf_node->create_subscription<bench_pack::msg::Wrapper>(
+            "topic", 10, [&phys_trigger](const bench_pack::msg::Wrapper::SharedPtr wrapper) { 
+
+
+                        //reactor::log::Info() << "Message is below deadline, message took: [" << delta << "] ns";
+                        phys_trigger.schedule(*wrapper);      
+                });
+    =}
+
+    reaction(phys_trigger) -> user_message{=
+        auto wrapper = *phys_trigger.get();
+        auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        auto timestamp = wrapper.meta_data.timestamp;
+        auto delta = static_cast<uint64_t>(now) - static_cast<uint64_t>(timestamp);
+        reactor::log::Info() << "[" << delta << "ms]";
+        if(delta > 5000){
+            reactor::log::Error() << "Deadline violated! [" << delta <<" ms]";
+        }
+
+
+        user_message.set(wrapper.user_data); 
+    =}
+}
