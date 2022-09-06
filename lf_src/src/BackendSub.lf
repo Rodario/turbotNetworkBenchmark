@@ -34,7 +34,7 @@ reactor Subscriber {
         auto wrapper = *phys_trigger.get();
         auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
         auto timestamp = wrapper.meta_data.timestamp;
-        auto delta = static_cast<uint64_t>(now) - static_cast<uint64_t>(timestamp);
+        auto delta = static_cast<int>(now) - static_cast<int>(timestamp);
         reactor::log::Info() << "[" << delta << "ms]";
         if(delta > 5000){
             reactor::log::Error() << "Deadline violated! [" << delta <<" ms]";
