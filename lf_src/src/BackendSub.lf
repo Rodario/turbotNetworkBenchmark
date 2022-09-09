@@ -1,5 +1,6 @@
 target Cpp {
-    keepalive: true
+    keepalive: true,
+    ros2-dependencies: ["bench_pack"]
 }
 
 public preamble {=
@@ -7,24 +8,78 @@ public preamble {=
     #include "bench_pack/msg/wrapper.hpp"
     #include "bench_pack/msg/user_data.hpp"
     #include "bench_pack/msg/metadata.hpp"
+
+    #include <fstream>
+    #include <iostream>
+    #include <cstdlib>
+    #include <filesystem>
 =}
 
 reactor Subscriber {
     private preamble {=
         // forward declaration to make node visible
         extern rclcpp::Node* lf_node;
+
+        // writes to "file_name" the given "line" as a new line
+        // creates file if not existent, opens file otherwise
+        void write_line_to_file (const std::string file_name, const std::string line) {      
+            std::ofstream myfile;
+            // creates file if not available and appends if available
+            myfile.open(file_name, std::fstream::in | std::fstream::out | std::fstream::app);
+            myfile << line << "\n";
+            myfile.close();
+        }
+
+        std::string get_current_DHM(){
+            auto t = std::time(nullptr);
+            auto tm = *std::localtime(&t);
+
+            std::ostringstream oss;
+            oss << std::put_time(&tm, "%d-%m-%Y__%H-%M-%S");
+            return oss.str();
+        }
     =}
 
     state subscription: {= rclcpp::Subscription<bench_pack::msg::Wrapper>::SharedPtr =}
 
     output user_message: {= bench_pack::msg::UserData =}
     physical action phys_trigger: {= bench_pack::msg::Wrapper =}
+    state measurement_file: {=std::string=}("measurements.csv");
+    state meta_info_file: {=std::string=}("meta_infos.txt");
 
     reaction(startup) -> phys_trigger {=
+        auto rmw = std::getenv("RMW_IMPLEMENTATION");
+        auto security = std::getenv("ROS_SECURITY_ENABLE");
+        std::string rmw_s(rmw);
+
+        std::string bench_root{"./" + get_current_DHM() + "/" + rmw_s };
+        
+        measurement_file = bench_root + "/" + measurement_file;
+        meta_info_file = bench_root + "/" + meta_info_file;
+
+        std::filesystem::create_directories(bench_root);
+        
+        write_line_to_file(meta_info_file, "");
+        write_line_to_file(measurement_file, "");
+
+        if(rmw){
+            reactor::log::Info() << "RMW: " << rmw;
+            write_line_to_file(meta_info_file, "rmw, " + rmw_s);
+        } else {
+            reactor::log::Info() << "RMW: Default";
+            write_line_to_file(meta_info_file, "rmw, default");
+        }
+
+        if(security){
+            reactor::log::Info() << "SEC: true";
+            write_line_to_file(meta_info_file, "security, true");
+        } else {
+            reactor::log::Info() << "SEC: false";
+            write_line_to_file(meta_info_file, "security, false");
+        }
+
         subscription = lf_node->create_subscription<bench_pack::msg::Wrapper>(
             "topic", 10, [&phys_trigger](const bench_pack::msg::Wrapper::SharedPtr wrapper) { 
-
-
                         //reactor::log::Info() << "Message is below deadline, message took: [" << delta << "] ns";
                         phys_trigger.schedule(*wrapper);      
                 });
@@ -32,12 +87,15 @@ reactor Subscriber {
 
     reaction(phys_trigger) -> user_message{=
         auto wrapper = *phys_trigger.get();
-        auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        auto now = get_physical_time().time_since_epoch().count();
         auto timestamp = wrapper.meta_data.timestamp;
-        auto delta = static_cast<int>(now) - static_cast<int>(timestamp);
-        reactor::log::Info() << "[" << delta << "ms]";
+        auto delta{now - timestamp};
+
+        write_line_to_file(measurement_file, std::to_string(delta/1000));
+
+        reactor::log::Info() << "[" << now - timestamp << "ns]";
         if(delta > 5000){
-            reactor::log::Error() << "Deadline violated! [" << delta <<" ms]";
+            reactor::log::Error() << "Deadline violated! [" << delta <<" ns]";
         }
 
 

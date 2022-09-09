@@ -1,6 +1,7 @@
 target Cpp {
     ros2: true,
-    keepalive: true
+    keepalive: true,
+    ros2-dependencies: ["bench_pack"]
 }
 
 import Subscriber from "./BackendSub.lf"

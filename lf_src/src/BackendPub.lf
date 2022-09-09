@@ -1,6 +1,7 @@
 target Cpp {
     ros2: true,
-    keepalive: true
+    keepalive: true,
+    ros2-dependencies: ["bench_pack"]
 }
 
 public preamble {=
@@ -27,7 +28,7 @@ reactor Publisher {
         // add metadata
         auto wrapper_message = bench_pack::msg::Wrapper();
         auto metadata = bench_pack::msg::Metadata();
-        auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        auto now = get_physical_time().time_since_epoch().count();
         metadata.timestamp = now;
 
         wrapper_message.meta_data = metadata;

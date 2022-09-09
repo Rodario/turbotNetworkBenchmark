@@ -1,6 +1,7 @@
 target Cpp {
     ros2: true,
-    keepalive: true
+    keepalive: true,
+    ros2-dependencies: ["bench_pack"]
 }
 
 import Publisher from "./BackendPub.lf";
@@ -19,8 +20,6 @@ reactor PrepareMessage{
         auto usr_msg = bench_pack::msg::UserData();  
         usr_msg.message = "Message with index: " + std::to_string(counter++);
         send_port.set(usr_msg);
-
-
     =}
 }
 
