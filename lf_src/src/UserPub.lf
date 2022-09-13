@@ -16,10 +16,14 @@ reactor PrepareMessage{
     state counter: int(0)
 
     reaction(t) -> send_port {=
-        reactor::log::Info() << "Publish message.";
+        reactor::log::Info() << "Publish message #" << counter;
         auto usr_msg = bench_pack::msg::UserData();  
         usr_msg.message = "Message with index: " + std::to_string(counter++);
         send_port.set(usr_msg);
+
+        if(counter >= 5000){
+            request_stop();
+        }
     =}
 }
 

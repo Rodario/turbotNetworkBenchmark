@@ -38,45 +38,45 @@ reactor Subscriber {
             oss << std::put_time(&tm, "%d-%m-%Y__%H-%M-%S");
             return oss.str();
         }
+
+        std::string getEnvVar( std::string const & key )
+        {
+            char * val = getenv( key.c_str() );
+            return val == NULL ? std::string("") : std::string(val);
+        }
     =}
 
     state subscription: {= rclcpp::Subscription<bench_pack::msg::Wrapper>::SharedPtr =}
 
     output user_message: {= bench_pack::msg::UserData =}
     physical action phys_trigger: {= bench_pack::msg::Wrapper =}
-    state measurement_file: {=std::string=}("measurements.csv");
+    state measurement_file_name: {=std::string=}("measurements.csv");
     state meta_info_file: {=std::string=}("meta_infos.txt");
+    state rmw_state: {=std::string=}("")
+    state security_state: {=std::string=}("")
 
     reaction(startup) -> phys_trigger {=
-        auto rmw = std::getenv("RMW_IMPLEMENTATION");
-        auto security = std::getenv("ROS_SECURITY_ENABLE");
-        std::string rmw_s(rmw);
+        // read environment variable of chosen rmw 
+        auto rmw = getEnvVar("RMW_IMPLEMENTATION");
+        if(rmw.empty()){ rmw = "default"; }
+        reactor::log::Info() << "RMW: " << rmw;
+        rmw_state=rmw;
 
-        std::string bench_root{"./" + get_current_DHM() + "/" + rmw_s };
+        // read environment variable of security state
+        auto security = getEnvVar("ROS_SECURITY_ENABLE");
+        if( security.empty() ){ security = "false"; }
+        reactor::log::Info() << "SEC: " << security;
+        security_state=security;
+
+        std::string bench_root{"./bench_logs/" + rmw + "/"+ get_current_DHM()};
         
-        measurement_file = bench_root + "/" + measurement_file;
-        meta_info_file = bench_root + "/" + meta_info_file;
+        // set the measurement csv file in the correct dir path
+        measurement_file_name = bench_root + "/" + measurement_file_name;
 
+        // setup directory structure
         std::filesystem::create_directories(bench_root);
-        
-        write_line_to_file(meta_info_file, "");
-        write_line_to_file(measurement_file, "");
-
-        if(rmw){
-            reactor::log::Info() << "RMW: " << rmw;
-            write_line_to_file(meta_info_file, "rmw, " + rmw_s);
-        } else {
-            reactor::log::Info() << "RMW: Default";
-            write_line_to_file(meta_info_file, "rmw, default");
-        }
-
-        if(security){
-            reactor::log::Info() << "SEC: true";
-            write_line_to_file(meta_info_file, "security, true");
-        } else {
-            reactor::log::Info() << "SEC: false";
-            write_line_to_file(meta_info_file, "security, false");
-        }
+        // write header line in csv
+        write_line_to_file(measurement_file_name, "value_us, rmw, security");
 
         subscription = lf_node->create_subscription<bench_pack::msg::Wrapper>(
             "topic", 10, [&phys_trigger](const bench_pack::msg::Wrapper::SharedPtr wrapper) { 
@@ -91,10 +91,10 @@ reactor Subscriber {
         auto timestamp = wrapper.meta_data.timestamp;
         auto delta{now - timestamp};
 
-        write_line_to_file(measurement_file, std::to_string(delta/1000));
+        write_line_to_file(measurement_file_name, std::to_string(delta/1000) + "," + rmw_state + "," + security_state);
 
-        reactor::log::Info() << "[" << now - timestamp << "ns]";
-        if(delta > 5000){
+        reactor::log::Info() << "[" << delta << "ns]";
+        if(delta > 50000000){
             reactor::log::Error() << "Deadline violated! [" << delta <<" ns]";
         }
 
