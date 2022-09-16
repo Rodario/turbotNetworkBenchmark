@@ -81,24 +81,26 @@ reactor Subscriber {
         subscription = lf_node->create_subscription<bench_pack::msg::Wrapper>(
             "topic", 10, [&phys_trigger](const bench_pack::msg::Wrapper::SharedPtr wrapper) { 
                         //reactor::log::Info() << "Message is below deadline, message took: [" << delta << "] ns";
-                        phys_trigger.schedule(*wrapper);      
+                        phys_trigger.schedule(*wrapper); 
+
                 });
     =}
 
     reaction(phys_trigger) -> user_message{=
         auto wrapper = *phys_trigger.get();
-        auto now = get_physical_time().time_since_epoch().count();
+        auto now = get_logical_time().time_since_epoch().count();
         auto timestamp = wrapper.meta_data.timestamp;
-        auto delta{now - timestamp};
+        auto delta{static_cast<long long int>(timestamp - now)};
+
+        reactor::log::Info() << "get_log: [" << get_logical_time() << "] since ep: [" << get_logical_time().time_since_epoch() << "] count: [" << get_logical_time().time_since_epoch().count();
 
         write_line_to_file(measurement_file_name, std::to_string(delta/1000) + "," + rmw_state + "," + security_state);
 
         reactor::log::Info() << "[" << delta << "ns]";
-        if(delta > 50000000){
-            reactor::log::Error() << "Deadline violated! [" << delta <<" ns]";
+        if(delta > 0){
+            reactor::log::Error() << "Publish happened before Subscribe in logical time! [" << delta <<" ns]";
+        } else {
+            user_message.set(wrapper.user_data); 
         }
-
-
-        user_message.set(wrapper.user_data); 
     =}
 }

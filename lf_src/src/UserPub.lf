@@ -11,7 +11,7 @@ reactor PrepareMessage{
         #include "bench_pack/msg/user_data.hpp"
     =}
 
-    timer t(0, 100 ms)
+    timer t(0, 1000000 ns)
     output send_port: {=bench_pack::msg::UserData=}
     state counter: int(0)
 
